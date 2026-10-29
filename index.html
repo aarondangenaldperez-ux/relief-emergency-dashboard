@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RELIEF Emergency Dashboard</title>
+<link rel="stylesheet"
+ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #eef2f7;
+  color: #172033;
+  padding: 14px;
+}
+main { max-width: 650px; margin: auto; }
+.card {
+  background: white;
+  padding: 16px;
+  margin: 14px 0;
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+.label { color: #64748b; font-size: 13px; }
+.value { font-size: 17px; font-weight: bold; margin-bottom: 15px; }
+.status { font-weight: bold; color: #b45309; }
+#map { height: 280px; border-radius: 10px; margin: 12px 0; }
+button {
+  width: 100%;
+  padding: 13px;
+  background: #1d4ed8;
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  margin: 5px 0;
+  font-size: 15px;
+}
+.history-item {
+  border-left: 4px solid #b91c1c;
+  background: #f8fafc;
+  padding: 12px;
+  margin: 12px 0;
+  border-radius: 5px;
+  font-size: 14px;
+}
+.history-item p { margin: 6px 0; }
+a { overflow-wrap: anywhere; }
+</style>
+</head>
+
+<body>
+<main>
+<h1>RELIEF</h1>
+<p>Emergency Monitoring Dashboard</p>
+<p class="label">LOCAL EMERGENCY RECEIVER PROTOTYPE</p>
+
+<section class="card">
+<h3>Latest Emergency Alert</h3>
+<p class="status" id="status">NO GPS CONFIRMED</p>
+
+<p class="label">Device ID</p>
+<div class="value" id="device">---</div>
+
+<p class="label">Latitude</p>
+<div class="value" id="lat">---</div>
+
+<p class="label">Longitude</p>
+<div class="value" id="lon">---</div>
+
+<p class="label">Received at</p>
+<div class="value" id="received">---</div>
+
+<p class="label">Location Map</p>
+<div id="map"></div>
+<p id="mapstatus" class="label">No confirmed location.</p>
+<a id="maplink" hidden target="_blank" rel="noopener">
+Open location in map
+</a>
+
+<button onclick="simulateSOS()">
+Simulate New SOS Alert
+</button>
+<button onclick="clearLocation()">
+Clear Current Map Marker
+</button>
+</section>
+
+<section class="card">
+<h3>SOS Alert History</h3>
+<p class="label">
+Newest alerts appear first. Times use this phone's clock.
+</p>
+<div id="history">
+<p class="label">No alerts recorded yet.</p>
+</div>
+</section>
+
+<p class="label">
+Prototype only. Alerts are simulated. A displayed GPS fix
+does not prove that a real SOS transmission was received.
+</p>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map = L.map("map").setView([14.5995, 120.9842], 12);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+let marker = null;
+let alertCount = 0;
+const history = [];
+
+function showLocation(lat, lon, device) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) ||
+      lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    document.getElementById("status").textContent =
+      "INVALID GPS COORDINATES";
+    return;
+  }
+
+  document.getElementById("device").textContent = device;
+  document.getElementById("lat").textContent = lat;
+  document.getElementById("lon").textContent = lon;
+  document.getElementById("status").textContent =
+    "GPS FIX — DEMO ONLY";
+
+  if (marker) map.removeLayer(marker);
+
+  marker = L.marker([lat, lon]).addTo(map)
+    .bindPopup("Demo location: " + device).openPopup();
+
+  map.setView([lat, lon], 16);
+
+  const link = document.getElementById("maplink");
+  link.href = "https://www.openstreetmap.org/?mlat=" +
+    lat + "&mlon=" + lon + "#map=16/" + lat + "/" + lon;
+  link.hidden = false;
+
+  document.getElementById("mapstatus").textContent =
+    "Demo coordinates shown on map.";
+}
+
+function simulateSOS() {
+  alertCount++;
+
+  const lat = 14.5995;
+  const lon = 120.9842;
+  const device = "RELIEF-01";
+  const receivedAt = new Date();
+
+  showLocation(lat, lon, device);
+  document.getElementById("received").textContent =
+    receivedAt.toLocaleString();
+
+  history.unshift({
+    id: "DEMO-" + String(alertCount).padStart(4, "0"),
+    device: device,
+    lat: lat,
+    lon: lon,
+    time: receivedAt.toLocaleString(),
+    timestamp: receivedAt.getTime()
+  });
+
+  renderHistory();
+}
+
+function renderHistory() {
+  const container = document.getElementById("history");
+  container.replaceChildren();
+
+  history.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "history-item";
+
+    const heading = document.createElement("strong");
+    heading.textContent = "SOS ALERT — " + item.id;
+    card.appendChild(heading);
+
+    const details = [
+      "Device: " + item.device,
+      "Demo recorded at: " + item.time,
+      "Latitude: " + item.lat,
+      "Longitude: " + item.lon,
+      "Status: Simulated alert; not a real transmission"
+    ];
+
+    details.forEach(text => {
+      const p = document.createElement("p");
+      p.textContent = text;
+      card.appendChild(p);
+    });
+
+    const link = document.createElement("a");
+    link.href = "https://www.openstreetmap.org/?mlat=" +
+      item.lat + "&mlon=" + item.lon +
+      "#map=16/" + item.lat + "/" + item.lon;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "View this location";
+    card.appendChild(link);
+
+    container.appendChild(card);
+  });
+}
+
+function clearLocation() {
+  if (marker) map.removeLayer(marker);
+  marker = null;
+
+  document.getElementById("status").textContent =
+    "NO CURRENT GPS MARKER";
+  document.getElementById("device").textContent = "---";
+  document.getElementById("lat").textContent = "---";
+  document.getElementById("lon").textContent = "---";
+  document.getElementById("received").textContent = "---";
+  document.getElementById("mapstatus").textContent =
+    "Current map marker cleared.";
+  document.getElementById("maplink").hidden = true;
+}
+</script>
+</body>
+</html>
